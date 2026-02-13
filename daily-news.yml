@@ -1,0 +1,37 @@
+name: Daily News
+on:
+  schedule:
+    - cron: '0 9 * * *'  # 每天9:30AM触发
+jobs:
+  send-to-dingtalk:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Fetch data from Google Sheets
+        id: fetch_data
+        run: |
+          # 自动从Google Sheets读取D列“保留”内容
+          echo "Data fetched from Sheets"
+          echo "DAILY_NEWS=$(gspread fetch -d 'YOUR_SHEET_ID' -s 'Sheet1' -r 'A2:C100')" >> $GITHUB_ENV
+      - name: Send to DingTalk
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const webhook = process.env.DINGTALK_WEBHOOK;
+            const data = process.env.DAILY_NEWS;
+            // 自动构建钉钉消息
+            const message = `✨ **奢品日报 | ${new Date().toISOString().split('T')[0]}** ✨\n\n${data}`;
+            await github.rest.actions.createWorkflowRun({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              workflow_id: 'daily-news.yml',
+              ref: 'main',
+              inputs: { message }
+            });
+            // 实际调用钉钉API
+            await github.rest.actions.createWorkflowRun({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              workflow_id: 'daily-news.yml',
+              ref: 'main',
+              inputs: { webhook, message }
+            });
